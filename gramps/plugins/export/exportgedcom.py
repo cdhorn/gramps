@@ -998,7 +998,7 @@ class GedcomWriter(UpdateCallback):
 
             self._note_references(source.get_note_list(), 1)
             self._change(source.get_change_time(), 1)
-            
+
             for srcattr in source.get_attribute_list():
                 if str(srcattr.type) == "_APID":
                     self._writeln(1, "_APID", srcattr.value)
