@@ -32,6 +32,7 @@ Person object for Gramps.
 #-------------------------------------------------------------------------
 from .primaryobj import PrimaryObject
 from .citationbase import CitationBase
+from .eventbase import EventBase
 from .notebase import NoteBase
 from .mediabase import MediaBase
 from .attrbase import AttributeBase
@@ -54,7 +55,7 @@ _ = glocale.translation.gettext
 # Person class
 #
 #-------------------------------------------------------------------------
-class Person(CitationBase, NoteBase, AttributeBase, MediaBase,
+class Person(CitationBase, NoteBase, EventBase, AttributeBase, MediaBase,
              AddressBase, UrlBase, LdsOrdBase, PrimaryObject):
     """
     The Person record is the Gramps in-memory representation of an
@@ -88,12 +89,12 @@ class Person(CitationBase, NoteBase, AttributeBase, MediaBase,
         CitationBase.__init__(self)
         NoteBase.__init__(self)
         MediaBase.__init__(self)
+        EventBase.__init__(self)
         AttributeBase.__init__(self)
         AddressBase.__init__(self)
         UrlBase.__init__(self)
         LdsOrdBase.__init__(self)
         self.primary_name = Name()
-        self.event_ref_list = []
         self.family_list = []
         self.parent_family_list = []
         self.alternate_names = []
@@ -140,7 +141,7 @@ class Person(CitationBase, NoteBase, AttributeBase, MediaBase,
             [name.serialize() for name in self.alternate_names], #  4
             self.death_ref_index,                                #  5
             self.birth_ref_index,                                #  6
-            [er.serialize() for er in self.event_ref_list],      #  7
+            EventBase.serialize(self),                           #  7
             self.family_list,                                    #  8
             self.parent_family_list,                             #  9
             MediaBase.serialize(self),                           # 10
@@ -274,10 +275,9 @@ class Person(CitationBase, NoteBase, AttributeBase, MediaBase,
         self.primary_name.unserialize(primary_name)
         self.alternate_names = [Name().unserialize(name)
                                 for name in alternate_names]
-        self.event_ref_list = [EventRef().unserialize(er)
-                               for er in event_ref_list]
         self.person_ref_list = [PersonRef().unserialize(pr)
                                 for pr in person_ref_list]
+        EventBase.unserialize(self, event_ref_list)
         MediaBase.unserialize(self, media_list)
         LdsOrdBase.unserialize(self, lds_ord_list)
         AddressBase.unserialize(self, address_list)
@@ -302,7 +302,7 @@ class Person(CitationBase, NoteBase, AttributeBase, MediaBase,
         :rtype: bool
         """
         if classname == 'Event':
-            return any(ref.ref == handle for ref in self.event_ref_list)
+            return self._has_event_reference(handle)
         elif classname == 'Person':
             return any(ref.ref == handle for ref in self.person_ref_list)
         elif classname == 'Family':
@@ -750,61 +750,6 @@ class Person(CitationBase, NoteBase, AttributeBase, MediaBase,
             return self.event_ref_list[self.death_ref_index]
         else:
             return None
-
-    def add_event_ref(self, event_ref):
-        """
-        Add the :class:`~.eventref.EventRef` to the Person instance's
-        :class:`~.eventref.EventRef` list.
-
-        This is accomplished by assigning the :class:`~.eventref.EventRef` of a
-        valid :class:`~.event.Event` in the current database.
-
-        :param event_ref: the :class:`~.eventref.EventRef` to be added to the
-                          Person's :class:`~.eventref.EventRef` list.
-        :type event_ref: EventRef
-        """
-        if event_ref and not isinstance(event_ref, EventRef):
-            raise ValueError("Expecting EventRef instance")
-
-        # check whether we already have this ref in the list
-        if not any(event_ref.is_equal(ref) for ref in self.event_ref_list):
-            self.event_ref_list.append(event_ref)
-
-    def get_event_ref_list(self):
-        """
-        Return the list of :class:`~.eventref.EventRef` objects associated with
-        :class:`~.event.Event` instances.
-
-        :returns: Returns the list of :class:`~.eventref.EventRef` objects
-                  associated with the Person instance.
-        :rtype: list
-        """
-        return self.event_ref_list
-
-    def get_primary_event_ref_list(self):
-        """
-        Return the list of :class:`~.eventref.EventRef` objects associated with
-        :class:`~.event.Event` instances that have been marked as primary
-        events.
-
-        :returns: Returns generator of :class:`~.eventref.EventRef` objects
-                  associated with the Person instance.
-        :rtype: generator
-        """
-        return (ref for ref in self.event_ref_list
-                if ref.get_role() == EventRoleType.PRIMARY
-               )
-
-    def set_event_ref_list(self, event_ref_list):
-        """
-        Set the Person instance's :class:`~.eventref.EventRef` list to the
-        passed list.
-
-        :param event_ref_list: List of valid :class:`~.eventref.EventRef`
-                               objects.
-        :type event_ref_list: list
-        """
-        self.event_ref_list = event_ref_list
 
     def _merge_event_ref_list(self, acquisition):
         """
